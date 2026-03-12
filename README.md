@@ -22,3 +22,13 @@ vereinfachten bzw. angenehmeren Umgang mit der Turtle. Die Turtle, die aus der J
     4. *README.md* --> Informationen darüber, wie man das Programm ans Laufen bekommt<br>
 
 Bei der Ausführung beachten, dass alle Dateien gegeben sind und Sie sich im richtigen Verzeichnis befinden!
+
+
+### Alternative: Docker <br>
+1. Installieren Sie Docker auf ihrem Computer.
+2. Öffnen Sie ein Terminal und navigieren Sie zu dem Ordner, in dem sich die Dockerfile befindet.
+3. Führen Sie folgenden Befehl aus, um das Docker-Image zu bauen: <br>
+    `docker build -t funktionsplotter .`
+4. Sobald das Image gebaut ist, können Sie den Container mit folgendem Befehl starten: <br>
+    `docker run -d -p 50001:50001 funktionsplotter`
+5. LVP startet mit der `funktionsplotter.java` und ist unter `http://localhost:50001/` aufrufbar

@@ -1,8 +1,6 @@
 import java.awt.Color;
-import static java.lang.System.*;
 import java.util.*;
 import java.util.regex.*;
-import java.util.stream.IntStream;
 
 import lvp.Clerk;
 import lvp.skills.Text;
