@@ -4,10 +4,10 @@ RUN apk add --no-cache socat bash
 
 WORKDIR /app
 
-COPY lvp-0.5.4.jar .
-COPY funktionsplotter.java .
-COPY Turtle.java .
-COPY start.sh .
+COPY src/lvp-0.5.4.jar .
+COPY src/funktionsplotter.java .
+COPY src/Turtle.java .
+COPY src/start.sh .
 
 RUN chmod +x start.sh
 

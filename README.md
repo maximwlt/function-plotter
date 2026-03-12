@@ -3,6 +3,7 @@
 1. Installieren Sie mindestens die JDK24-Version
 2. Entpacken Sie das ZIP-Archiv in einen Ordner ihrer Wahl
 3. Öffnen Sie diesen Ordner in einer IDE (wie z.B: VisualStudioCode) ihrer Wahl
+   und wechseln Sie in das `src`-Verzeichnis. `
 4. Öffnen Sie anschließend ein neues Terminal (in ihrer IDE) und geben sie folgenden Befehl ein: 
     `java -jar lvp-0.5.4.jar --log --watch=funktionsplotter.java` <br>
     LVP startet mit der `funktionsplotter.java` und ist unter dem `http://localhost:50001/` aufrufbar
