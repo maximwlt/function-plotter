@@ -10,23 +10,26 @@ import lvp.views.Dot;
 
 void main() {
     Clerk.clear();
-    Clerk.markdown("# Funktionsplotter Projekt in Programmieren 2 - SS25");
-    Clerk.markdown("von: *Maxim Walter*");
-    Clerk.markdown("---");
-    Clerk.markdown("# Dokumentation");
-    Clerk.markdown("## Inhaltsverzeichnis:");
     Clerk.markdown("""
+    # Funktionsplotter Projekt in Programmieren 2 - SS25
+    von: *Maxim Walter*
+
+    ---
+
+    # Dokumentation
+    ## Inhaltsverzeichnis:
     - Einführung
         - Eingabe
         - Anzeige
         - Interna
     - 1.Erweiterung
     - 2.Erweiterung
+    - 3.Erweiterung
     - Playground
-    """);
 
-    Clerk.markdown("## Einführung");
-    Clerk.markdown("Beachten Sie die Hinweise auf der README.md Datei bei der Ausführung der LVP");
+    ## Einführung
+    Beachten Sie die Hinweise auf der README.md Datei bei der Ausführung der LVP
+    """);
     Clerk.markdown(Text.fillOut("""
     **Modifizierte Turtle.java** <br>
     Es wurden drei Methoden hinzugefügt, um das Zeichnen mit der Turtle zu erleichtern. Die Turtle.java muss im Verzeichnis enthalten bleiben
@@ -304,16 +307,32 @@ void main() {
     Expr first_expr_p2 = Parser.parse("a * x^2 - a * 1/5");
     Expr second_expr_p2 = Parser.parse("a * sin(x - pi / 4) + 1");
 
-    p2.redraw();
-    p2.plotFunctionWithParams(first_expr_p2, "a", 2.0, 4.0, 5.0);
-    p2.plotFunctionWithParams(second_expr_p2, "a", -1.0, 3.0, 8.0, 11.0);
-    p2.startTurtle();
+    //p2.redraw();
+    //p2.plotFunctionWithParams(first_expr_p2, "a", 2.0, 4.0, 5.0);
+    //p2.plotFunctionWithParams(second_expr_p2, "a", -1.0, 3.0, 8.0, 11.0);
+    //p2.startTurtle();
     // cut out param erweiterung
 
 
 
+    Clerk.markdown("""
+    ## 3. Erweiterung: Ableitungsrechner + Anzeige
+    ---
 
+    """);
 
+    Plotter p3 = new Plotter(-15, 15, -10, 16);
+    Expr normal_expr = Parser.parse("x^4 + 5*x + 9");
+    Expr first_derived_expr = Differentiator.derive(normal_expr); // 4 * x^3 + 5
+    Expr second_derived_expr = Differentiator.derive(first_derived_expr); // 12 * x^2
+    Expr third_derived_expr = Differentiator.derive(second_derived_expr); // 24 * x
+
+    p3.redraw();
+    p3.plotFunction(normal_expr);
+    p3.plotFunction(first_derived_expr);
+    p3.plotFunction(second_derived_expr);
+    p3.plotFunction(third_derived_expr);
+    p3.startTurtle();
 
 
     Clerk.markdown("""
@@ -352,6 +371,8 @@ void main() {
         "4*x^3 + log_4(x)",
         "1/x",
         "45 cos 10 * 9 sqrt +",
+        "x^4 + 5*x + 9",
+        "4*x^3 + 5",
         //"3 x 2 ^ * 5 -", // UPN mit Variable
         // "x sin x cos +",   // UPN mit Funktion
         // "(6 + 2) * 2", // Infix mit Klammern
@@ -528,8 +549,6 @@ class Plotter {
 
 
     void plotFunctionWithParams(Expr expr, String p, double... params) {
-        // int[] color = colorGenerator.getNextColor();
-        // turtle.color(color[0], color[1], color[2]);
         Arrays.stream(params).forEach(par -> {
             setParam(p, par);
             plotFunction(expr);
@@ -928,6 +947,8 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
             }
         };
     }
+
+    
 }
 
 
@@ -1383,3 +1404,111 @@ class UPNGenerator {
         }
     }
 }
+
+
+class Differentiator {
+
+    public static Expr derive(Expr expr) {
+        return switch (expr) {
+            case Expr.Number n -> new Expr.Number(0);
+            case Expr.Variable v -> new Expr.Number(1);
+            case Expr.Constant(ArithmeticTokenizer.Token.Constant constant) -> {
+                yield switch(constant) {
+                    case PI -> new Expr.Number(0);
+                    case E -> new Expr.Number(0);
+                };
+            }
+            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> {
+                yield switch(op) {
+                    case NEG -> new Expr.UnaryOp(ArithmeticTokenizer.Token.Operator.NEG, derive(e));
+                    default -> throw new UnsupportedOperationException();
+                };
+            }
+            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> {
+                yield switch(op) {
+                    case ADD -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.ADD, derive(l), derive(r));
+                    case SUB -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.SUB, derive(l), derive(r));
+                    // Produktregel: (u * v)' => u' * v + u * v'
+                    case MUL -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.ADD, 
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, derive(l), r),
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, l, derive(r))
+                    );
+                    // Quotientenregel: (u / v)' => (u' * v - u * v') / (v * v)
+                    case DIV -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.SUB,
+                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, derive(l), r),
+                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, l, derive(r))
+                        ),
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, r, r)
+                    );
+                    // Potenzregel: x^n => n * x^(n-1)
+                    case POW -> {
+                        if (r instanceof Expr.Number n) {
+                            yield new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, 
+                                new Expr.Number(n.value()),
+                                new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.POW,
+                                    l,
+                                    new Expr.Number(n.value() - 1)
+                                )
+                            );
+                        } else {
+                            throw new UnsupportedOperationException("Nur x^n unterstützt.");
+                        }
+                    }
+                    default -> throw new UnsupportedOperationException("Operator is not implemented yet.");
+                };
+            }
+            default -> throw new UnsupportedOperationException("Coming soon");
+            
+        };
+    }
+}
+    /*
+    record Number(double value) implements Expr {}
+    record Variable(String name) implements Expr {}
+    record UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr operand) implements Expr {}
+    record BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr left, Expr right) implements Expr {}
+    record FunctionCall(ArithmeticTokenizer.Token.Function function, Expr argument) implements Expr {}
+    record Constant(ArithmeticTokenizer.Token.Constant constant) implements Expr {}
+    record LogBase(double base, Expr expr) implements Expr {}
+    record Parameter(String name) implements Expr {}
+
+        private double eval(double x) {
+        return switch(this) {
+            case Number n -> n.value();
+            case Variable v -> x;
+            case UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> switch(op) {
+                case NEG -> -e.eval(x);
+                default -> throw new UnsupportedOperationException();
+            };
+            case BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> switch(op) {
+                case ADD -> l.eval(x) + r.eval(x);
+                case SUB -> l.eval(x) - r.eval(x);
+                case MUL -> l.eval(x) * r.eval(x);
+                case DIV -> l.eval(x) / r.eval(x);
+                case POW -> Math.pow(l.eval(x), r.eval(x));
+                default -> throw new UnsupportedOperationException();
+            };
+            case FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> switch(func) {
+                case SIN -> Math.sin(arg.eval(x));
+                case COS -> Math.cos(arg.eval(x));
+                case TAN -> Math.tan(arg.eval(x));
+                case LOG -> Math.log10(arg.eval(x));
+                case LN -> Math.log(arg.eval(x));
+                case SQRT -> Math.sqrt(arg.eval(x));
+                case EXP -> Math.exp(arg.eval(x));
+            };
+            case Constant(ArithmeticTokenizer.Token.Constant c) -> switch(c) {
+                case PI -> Math.PI;
+                case E -> Math.E;
+            };
+            case LogBase(Double base, Expr arg) -> Math.log(arg.eval(x)) / Math.log(base);
+            case Parameter p -> { 
+                Double value = parameters.get(p.name());
+                if (value == null) throw new ArithmeticException("Parameter '" + p.name() + "' not set");            
+                yield value;
+            }
+        };
+    }
+
+    */

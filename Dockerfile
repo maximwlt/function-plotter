@@ -13,7 +13,5 @@ RUN chmod +x start.sh
 
 CMD ["./start.sh"]
 
-#CMD socat TCP-LISTEN:50001,bind=0.0.0.0,fork TCP:127.0.0.1:50001 & java -jar lvp-0.5.4.jar --log --watch=src.funktionsplotter.java
-# ENTRYPOINT ["java", "-jar", "lvp-0.5.4.jar", "--log", "--watch=src.funktionsplotter.java"]
 
 
