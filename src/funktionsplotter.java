@@ -878,6 +878,21 @@ class ArithmeticTokenizer {
 // ================= AST (Abstrakter Syntaxbaum) =================
 // cut Expr SI
 sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.BinaryOp, Expr.FunctionCall, Expr.Constant, Expr.LogBase, Expr.Parameter {
+
+    static Expr num(double value) { return new Number(value); }
+    static Expr var(String name) { return new Variable(name); }
+    static Expr neg(Expr e) { return new UnaryOp(Operator.NEG, e); }
+    static Expr add(Expr l, Expr r) { return new BinaryOp(Operator.ADD, l, r); }
+    static Expr sub(Expr l, Expr r) { return new BinaryOp(Operator.SUB, l, r); }
+    static Expr mul(Expr l, Expr r) { return new BinaryOp(Operator.MUL, l, r); }
+    static Expr div(Expr l, Expr r) { return new BinaryOp(Operator.DIV, l, r); }
+    static Expr pow(Expr l, Expr r) { return new BinaryOp(Operator.POW, l, r); }
+    static Expr function(Function f, Expr arg) { return new FunctionCall(f, arg); }
+    static Expr constant(Const c) { return new Constant(c); }
+    // static Expr logBase(double base, Expr arg) { return new LogBase(base, arg); }
+    static Expr param(String name) { return new Parameter(name); }
+
+
     record Number(double value) implements Expr {}
     record Variable(String name) implements Expr {}
     record UnaryOp(Operator op, Expr operand) implements Expr {}
@@ -963,7 +978,6 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
 
     
 }
-
 
 // AST Vis cut
 class ASTVisualisation {
@@ -1421,49 +1435,45 @@ class UPNGenerator {
 
 
 class Differentiator {
-
     public static Expr derive(Expr expr) {
         return switch (expr) {
             case Expr.Number n -> new Expr.Number(0);
             case Expr.Variable v -> new Expr.Number(1);
             case Expr.Constant(Const constant) -> {
                 yield switch(constant) {
-                    case PI -> new Expr.Number(0);
-                    case E -> new Expr.Number(0);
+                    case PI -> Expr.num(0);
+                    case E -> Expr.num(0);
                 };
             }
             case Expr.UnaryOp(Operator op, Expr e) -> {
-                yield switch(op) {
-                    case NEG -> new Expr.UnaryOp(Operator.NEG, derive(e));
+                yield switch(op) { 
+                    case NEG -> Expr.neg(derive(e));
                     default -> throw new UnsupportedOperationException();
                 };
             }
             case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
                 yield switch(op) {
-                    case ADD -> new Expr.BinaryOp(Operator.ADD, derive(l), derive(r));
-                    case SUB -> new Expr.BinaryOp(Operator.SUB, derive(l), derive(r));
+                    case ADD -> Expr.add(derive(l), derive(r));
+                    case SUB -> Expr.sub(derive(l), derive(r));
                     // Produktregel: (u * v)' => u' * v + u * v'
-                    case MUL -> new Expr.BinaryOp(Operator.ADD, 
-                        new Expr.BinaryOp(Operator.MUL, derive(l), r),
-                        new Expr.BinaryOp(Operator.MUL, l, derive(r))
+                    case MUL -> Expr.add(
+                        Expr.mul(derive(l), r),
+                        Expr.mul(l, derive(r))
                     );
                     // Quotientenregel: (u / v)' => (u' * v - u * v') / (v * v)
-                    case DIV -> new Expr.BinaryOp(Operator.DIV,
-                        new Expr.BinaryOp(Operator.SUB,
-                            new Expr.BinaryOp(Operator.MUL, derive(l), r),
-                            new Expr.BinaryOp(Operator.MUL, l, derive(r))
+                    case DIV -> Expr.div(
+                        Expr.sub(
+                            Expr.mul(derive(l), r),
+                            Expr.mul(l, derive(r))
                         ),
-                        new Expr.BinaryOp(Operator.MUL, r, r)
+                        Expr.mul(r, r)
                     );
                     // Potenzregel: x^n => n * x^(n-1)
                     case POW -> {
                         if (r instanceof Expr.Number n) {
-                            yield new Expr.BinaryOp(Operator.MUL, 
-                                new Expr.Number(n.value()),
-                                new Expr.BinaryOp(Operator.POW,
-                                    l,
-                                    new Expr.Number(n.value() - 1)
-                                )
+                            yield Expr.mul(
+                                Expr.num(n.value()),
+                                Expr.pow(l, Expr.num(n.value() - 1))
                             );
                         } else {
                             throw new UnsupportedOperationException("Nur x^n unterstützt.");
@@ -1474,74 +1484,73 @@ class Differentiator {
             }
             case Expr.FunctionCall(Function func, Expr arg) -> {
                 yield switch(func) {
-                    case SIN -> new Expr.BinaryOp(Operator.MUL,
-                        new Expr.FunctionCall(Function.COS, arg),
+                    case SIN -> Expr.mul(
+                        Expr.function(Function.COS, arg),
                         derive(arg)
                     );
-                    case COS -> new Expr.UnaryOp(Operator.NEG,
-                        new Expr.BinaryOp(Operator.MUL,
-                            new Expr.FunctionCall(Function.SIN, arg),
+                    case COS -> Expr.neg(
+                        Expr.mul(
+                            Expr.function(Function.SIN, arg),
                             derive(arg)
                         )  
                     );
-                    case TAN -> new Expr.BinaryOp(Operator.MUL,
-                        new Expr.BinaryOp(Operator.DIV,
-                            new Expr.Number(1),
-                            new Expr.BinaryOp(Operator.POW,
-                                new Expr.FunctionCall(Function.COS, arg),
-                                new Expr.Number(2)
+                    case TAN -> Expr.mul(
+                        Expr.div(
+                            Expr.num(1),
+                            Expr.pow(
+                                Expr.function(Function.COS, arg),
+                                Expr.num(2)
                             )
                         ),
                         derive(arg)
                     );
-                    case LOG -> new Expr.BinaryOp(Operator.MUL,
-                        new Expr.BinaryOp(Operator.DIV,
-                            new Expr.Number(1),
-                            new Expr.BinaryOp(Operator.MUL,
+                    case LOG -> Expr.mul(
+                        Expr.div(
+                            Expr.num(1),
+                            Expr.mul(
                                 arg,
-                                new Expr.FunctionCall(Function.LN, new Expr.Number(10))
+                                Expr.function(Function.LN, Expr.num(10))
                             )
                         ),
                         derive(arg)
                     );
-                    case LN -> new Expr.BinaryOp(Operator.MUL,
-                        new Expr.BinaryOp(Operator.DIV,
-                            new Expr.Number(1),
+                    case LN -> Expr.mul(
+                        Expr.div(
+                            Expr.num(1),
                             arg
                         ),
                         derive(arg)
                     );
-                    case SQRT -> new Expr.BinaryOp(Operator.MUL,
-                        new Expr.BinaryOp(Operator.DIV,
-                            new Expr.Number(1),
-                            new Expr.BinaryOp(Operator.MUL,
-                                new Expr.Number(2),
-                                new Expr.FunctionCall(Function.SQRT, arg)
+                    case SQRT -> Expr.mul(
+                        Expr.div(
+                            Expr.num(1),
+                            Expr.mul(
+                                Expr.num(2),
+                                Expr.function(Function.SQRT, arg)
                             )
                         ),
                         derive(arg)
                     );
-                    case EXP -> new Expr.BinaryOp(Operator.MUL,
-                        new Expr.FunctionCall(Function.EXP, arg),
+                    case EXP -> Expr.mul(
+                        Expr.function(Function.EXP, arg),
                         derive(arg)
                     );
                     default -> throw new UnsupportedOperationException("Funktion " + func + " wird nicht unterstützt");
                 };
             }
+            case Expr.LogBase(double log_base, Expr arg) -> Expr.mul(
+                Expr.div(
+                    Expr.num(1),
+                    Expr.mul(
+                        arg,
+                        Expr.function(Function.LN, Expr.num(log_base))
+                    )
+                ),
+                derive(arg)
+            );
+            case Expr.Parameter p -> Expr.param(p.name()); // Ableitung von Parametern bleibt als Parameter erhalten
             default -> throw new UnsupportedOperationException("Operation wird nicht unterstützt");
             
         };
     }
 }
-/*
-    private double eval(double x) {
-        return switch(this) {
-            case LogBase(Double base, Expr arg) -> Math.log(arg.eval(x)) / Math.log(base);
-            case Parameter p -> { 
-                Double value = parameters.get(p.name());
-                if (value == null) throw new ArithmeticException("Parameter '" + p.name() + "' not set");            
-                yield value;
-            }
-        };
-    }
-*/
