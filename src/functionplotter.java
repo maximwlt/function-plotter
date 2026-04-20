@@ -11,7 +11,7 @@ import lvp.views.Dot;
 void main() {
     Clerk.clear();
     Clerk.markdown("""
-    # Funktionsplotter Projekt in Programmieren 2 - SS25
+    # Funktionsplotter Projekt
     von: *Maxim Walter*
 
     ---

@@ -1,35 +1,34 @@
-## Ausführungsanleitung LVP mit dem Code
-**Ablauf:**
-1. Installieren Sie mindestens die JDK24-Version
-2. Entpacken Sie das ZIP-Archiv in einen Ordner ihrer Wahl
-3. Öffnen Sie diesen Ordner in einer IDE (wie z.B: VisualStudioCode) ihrer Wahl
-   und wechseln Sie in das `src`-Verzeichnis. `
-4. Öffnen Sie anschließend ein neues Terminal (in ihrer IDE) und geben sie folgenden Befehl ein: 
-    `java -jar lvp-0.5.4.jar --log --watch=funktionsplotter.java` <br>
-    LVP startet mit der `funktionsplotter.java` und ist unter dem `http://localhost:50001/` aufrufbar
+## Execution Guide for LVP with the Code
+**Steps:**
+1. Install at least JDK-24.
+2. Extract the ZIP archive into a folder of your choice.
+3. Open this folder in an IDE of your choice (e.g., Visual Studio Code) and navigate to the `src` directory.
+4. Open a new terminal (inside your IDE) and run the following command:
+    `java -jar lvp-0.5.4.jar --log --watch=functionplotter.java` <br>
+5. LVP will start with `functionplotter.java` and can be accessed at: `http://localhost:50001/`
 
-**Modifikationen am LVP: <br>**
-Es wurde lediglich die [Turtle.java](https://github.com/denkspuren/LiveViewProgramming/blob/main/src/main/java/lvp/views/Turtle.java) aus dem [*LiveViewProgramming*](https://github.com/denkspuren/LiveViewProgramming) gezogen und einige Methoden hinzugefügt für einen
-vereinfachten bzw. angenehmeren Umgang mit der Turtle. Die Turtle, die aus der JAR-Datei gegeben ist wird im Programm nicht importiert.
+**Modifications to LVP: <br>**
+Only the [Turtle.java](https://github.com/denkspuren/LiveViewProgramming/blob/main/src/main/java/lvp/views/Turtle.java) from [*LiveViewProgramming*](https://github.com/denkspuren/LiveViewProgramming) was reused and extended with a few additional methods to simplify and improve usability. The original Turtle implementation from the JAR file (`lvp-0.5.4.jar`) is not used in this project.
 
-**Erweiterungen:**
-1. Eingabe und Anzeige von mehreren Funktionen, die farblich voneinander unterschieden werden
-2. Funktionen mit Parameter a, wo die Anzahl an Werten selbst gewählt werden kann und gleichzeitig die verschiedenen Funktionsverläufe anzeigt werden.
+**Extensions:**
+1. Input and visualization of multiple functions with distinct colors
+2. Support for functions with a parameter `a`, allowing multiple parameter values to be displayed simultaneously
+3. Derivation of functions
 
-**Wichtige Bemerkung**: Das ZIP-Archiv enthält vier Dateien: <br>
-    1. *funktionsplotter.java* --> Das Java-Programm für den Funktionsplotter<br>
-    2. *lvp-0.5.4.jar* --> Die JAR-Datei für das LVP <br>
-    3. *Turtle.java* --> Selbstständig erweiterte Turtle mit 3 zusätzlichen Methoden, die anstelle der Turtle aus der JAR-Datei (*lvp-0.5.4.jar*) verwendet wird<br>
-    4. *README.md* --> Informationen darüber, wie man das Programm ans Laufen bekommt<br>
+**Important Note**: The archive contains important files: <br>
+    1. *functionplotter.java* --> The Java program for the function plotter<br>
+    2. *lvp-0.5.4.jar* --> The JAR file for LVP <br>
+    3. *Turtle.java* --> Self-developed extended Turtle with 3 additional methods, used instead of the Turtle from the JAR file (`lvp-0.5.4.jar`)<br>
+    4. *README.md* --> Information about how to run the program<br>
 
-Bei der Ausführung beachten, dass alle Dateien gegeben sind und Sie sich im richtigen Verzeichnis befinden!
+When executing, make sure all files are present and you are in the correct directory!
 
 
 ### Alternative: Docker <br>
-1. Installieren Sie Docker auf ihrem Computer.
-2. Öffnen Sie ein Terminal und navigieren Sie zu dem Ordner, in dem sich die Dockerfile befindet.
-3. Führen Sie folgenden Befehl aus, um das Docker-Image zu bauen: <br>
-    `docker build -t funktionsplotter .`
-4. Sobald das Image gebaut ist, können Sie den Container mit folgendem Befehl starten: <br>
-    `docker run -d -p 50001:50001 funktionsplotter`
-5. LVP startet mit der `funktionsplotter.java` und ist unter `http://localhost:50001/` aufrufbar
+1. Install Docker on your computer.
+2. Open a terminal and navigate to the folder where the Dockerfile is located.
+3. Run the following command to build the Docker image: <br>
+    `docker build -t functionplotter .`
+4. Once the image is built, you can start the container with the following command: <br>
+    `docker run -d -p 50001:50001 functionplotter`
+5. LVP will start with `functionplotter.java` and can be accessed at: `http://localhost:50001/`
