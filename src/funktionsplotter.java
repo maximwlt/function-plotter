@@ -28,7 +28,7 @@ void main() {
     - Playground
 
     ## Einführung
-    Beachten Sie die Hinweise auf der README.md Datei bei der Ausführung der LVP
+    Beachten Sie die Hinweise auf der `README.md` Datei bei der Ausführung der LVP
     """);
     Clerk.markdown(Text.fillOut("""
     **Modifizierte Turtle.java** <br>
@@ -235,7 +235,7 @@ void main() {
     ));
 
     // tokenizer example
-    List<ArithmeticTokenizer.Token> tokens_example = ArithmeticTokenizer.tokenize("4 + x / log_5(3) ^ sin(x*2)");
+    List<Token> tokens_example = ArithmeticTokenizer.tokenize("4 + x / log_5(3) ^ sin(x*2)");
     String tokens_example_str = tokens_example.toString();
     // tokenizer example 
 
@@ -331,12 +331,19 @@ void main() {
     String tangens = InfixGenerator.generate(tangens_func);
     Clerk.markdown(String.format("**Ableitung von tan(2*x):** %s", tangens));
 
+    Expr e_function = Parser.parse("2 * e^5 * x^2");
+    Clerk.markdown(String.format("**Funktion:** %s", InfixGenerator.generate(e_function)));
+    Expr e_function_derived = Differentiator.derive(e_function);
+    Clerk.markdown(String.format("**Ableitung:** %s", InfixGenerator.generate(e_function_derived)));
+
     p3.redraw();
     //p3.plotFunction(normal_expr);
     //p3.plotFunction(first_derived_expr);
     //p3.plotFunction(second_derived_expr);
     //p3.plotFunction(third_derived_expr);
-    p3.plotFunction(tangens_func);
+    //p3.plotFunction(tangens_func);
+    p3.plotFunction(e_function);
+
     p3.startTurtle();
 
 
@@ -371,9 +378,10 @@ void main() {
 
     // Funktionen
     String[] examples = {
-        "tan(2*x)",
-        "sin(x) + cos(x)", // Infix mit Funktion
-        "sqrt(x+4)"
+        "2 * e^5 * x^2",
+        InfixGenerator.generate(e_function_derived),
+        //"sin(x) + cos(x)", // Infix mit Funktion
+        //sqrt(x+4)"
         //"a * e^x + 6",
         //"4*x^3 + log_4(x)",
         //"1/x",
@@ -641,14 +649,14 @@ class Plotter {
         return switch(expr) {
             case Expr.Number num -> num.value();
             case Expr.Variable v -> x;
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e)-> {
+            case Expr.UnaryOp(Operator op, Expr e)-> {
                 double value = eval(e, x);
                 yield switch (op) {
                     case NEG -> -value;
-                    default -> throw new UnsupportedOperationException();
+                    default -> throw new UnsupportedOperationException("Unary-Operator " + op + " wird nicht unterstützt");
                 };
             }
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> {
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
                 double left = eval(l, x);
                 double right = eval(r, x);
                 yield switch(op) {
@@ -657,10 +665,10 @@ class Plotter {
                     case MUL -> left * right;
                     case DIV -> left / right;
                     case POW -> Math.pow(left, right);
-                    default -> throw new UnsupportedOperationException();
+                    default -> throw new UnsupportedOperationException("Binary-Operator " + op + " wird nicht unterstützt");
                 };
             }
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> {
+            case Expr.FunctionCall(Function func, Expr arg) -> {
                 double value = eval(arg, x);
                 yield switch(func) {
                     case SIN -> Math.sin(value);
@@ -670,10 +678,10 @@ class Plotter {
                     case LN -> Math.log(value);
                     case SQRT -> Math.sqrt(value);
                     case EXP -> Math.exp(value);
-                    default -> throw new UnsupportedOperationException();
+                    default -> throw new UnsupportedOperationException("Funktion " + func + " wird nicht unterstützt");
                 };
             }
-            case Expr.Constant(ArithmeticTokenizer.Token.Constant c) -> switch (c) {
+            case Expr.Constant(Const c) -> switch (c) {
                 case PI -> Math.PI;
                 case E -> Math.E;
             };
@@ -724,71 +732,69 @@ class ColorGenerator {
 // cut farbgen
 
 
+record Number(double value) implements Token {}
+
+enum Operator implements Token { 
+    ADD("+"),
+    SUB("-"),
+    MUL("*"),
+    DIV("/"),
+    NEG("~"),
+    POW("^");
+    final String symbol;
+    Operator(String symbol) { this.symbol = symbol; }
+}
+
+enum Paren implements Token { OPEN("("), CLOSE(")"); 
+    final String symbol;
+    Paren(String symbol) { this.symbol = symbol; }
+}
+
+record Variable(String name) implements Token {}
+
+enum Function implements Token { 
+    SIN("sin"),
+    COS("cos"),
+    TAN("tan"), 
+    LOG("log"),
+    LN("ln"),
+    SQRT("sqrt"),
+    EXP("exp");
+    final String name;
+    Function(String name) { this.name = name; }
+}
+
+enum Const implements Token {
+    PI("pi"), E("e");
+    final String symbol;
+    Const(String symbol) { this.symbol = symbol; }
+}
+
+record LogBase(double base) implements Token {}
+record Illegal(String text) implements Token {}
+record Parameter(String name) implements Token {}
+
+public sealed interface Token permits Number, Operator, Paren, Variable, Function, Const, Illegal, LogBase, Parameter {}
+
 
 // ================= Token und Tokenizer =================
 class ArithmeticTokenizer {
     
-    public sealed interface Token permits Token.Number, Token.Operator, Token.Paren, Token.Variable, Token.Function, Token.Constant, Token.Illegal, Token.LogBase, Token.Parameter {
-        
-        record Number(double value) implements Token {}
-        
-        enum Operator implements Token { 
-            ADD("+"),
-            SUB("-"),
-            MUL("*"),
-            DIV("/"),
-            NEG("~"),
-            POW("^");
-            final String symbol;
-            Operator(String symbol) { this.symbol = symbol; }
-        }
-        
-        enum Paren implements Token { OPEN("("), CLOSE(")"); 
-            final String symbol;
-            Paren(String symbol) { this.symbol = symbol; }
-        }
-        
-        record Variable(String name) implements Token {}
-        
-        enum Function implements Token { 
-            SIN("sin"),
-            COS("cos"),
-            TAN("tan"), 
-            LOG("log"),
-            LN("ln"),
-            SQRT("sqrt"),
-            EXP("exp");
-            final String name;
-            Function(String name) { this.name = name; }
-        }
-        
-        enum Constant implements Token {
-            PI("pi"), E("e");
-            final String symbol;
-            Constant(String symbol) { this.symbol = symbol; }
-        }
-        
-        record LogBase(double base) implements Token {}
-        record Illegal(String text) implements Token {}
-
-        record Parameter(String name) implements Token {}
-    }
-
     public static List<Token> tokenize(String input) {
         return new Tokenizer(input).tokenize();
     }
 
     private static class Tokenizer {
         private static final Pattern TOKEN_PATTERN = Pattern.compile(
-            "(?<NUM>\\d+\\.?\\d*)|" +      // Zahlen
-            "(?<FUNC>sin|cos|tan|log_\\d+|log|ln|sqrt|exp)|" + // Funktionen
-            "(?<CONST>pi|e)|" +             // Konstanten
-            "(?<PAR>a)|" +                // Parameter
-            "(?<VAR>[b-zB-Z][b-zB-Z0-9]*)|" + // Variablen
-            "(?<OP>[+\\-*/~^])|" +         // Operatoren
-            "(?<PAREN>[()])|" +            // Klammern
-            "(?<WS>\\s+)|" +               // Whitespace (ignoriert)
-            "(?<ILLEGAL>.)"                // Ungültige Zeichen
+            "(?<NUM>\\d+\\.?\\d*)|" +                           // Zahlen
+            "(?<FUNC>sin|cos|tan|log_\\d+|log|ln|sqrt|exp)|" +  // Funktionen
+            "(?<CONST>pi|e)|" +                                 // Konstanten
+            "(?<PAR>a)|" +                                      // Parameter
+            "(?<VAR>[b-zB-Z][b-zB-Z0-9]*)|" +                   // Variablen
+            "(?<OP>[+\\-*/~^])|" +                              // Operatoren
+            "(?<PAREN>[()])|" +                                 // Klammern
+            "(?<WS>\\s+)|" +                                    // Whitespace (ignoriert)
+            "(?<ILLEGAL>.)"                                     // Ungültige Zeichen
         );
 
         private final String input;
@@ -803,64 +809,64 @@ class ArithmeticTokenizer {
             return matcher.results()
                 .<Token>mapMulti((result, consumer) -> {
                     if (result.group("NUM") != null) {
-                        consumer.accept(new Token.Number(
+                        consumer.accept(new Number(
                             Double.parseDouble(result.group())
                         ));
                     } 
                     else if (result.group("OP") != null) {
                         consumer.accept(switch (result.group()) {
-                            case "+" -> Token.Operator.ADD;
-                            case "-" -> Token.Operator.SUB;
-                            case "*" -> Token.Operator.MUL;
-                            case "/" -> Token.Operator.DIV;
-                            case "~" -> Token.Operator.NEG;
-                            case "^" -> Token.Operator.POW;
+                            case "+" -> Operator.ADD;
+                            case "-" -> Operator.SUB;
+                            case "*" -> Operator.MUL;
+                            case "/" -> Operator.DIV;
+                            case "~" -> Operator.NEG;
+                            case "^" -> Operator.POW;
                             default -> throw new IllegalStateException();
                         });
                     }
                     else if (result.group("PAREN") != null) {
                         consumer.accept(switch (result.group()) {
-                            case "(" -> Token.Paren.OPEN;
-                            case ")" -> Token.Paren.CLOSE;
+                            case "(" -> Paren.OPEN;
+                            case ")" -> Paren.CLOSE;
                             default -> throw new IllegalStateException();
                         });
                     }
                     else if (result.group("VAR") != null) {
-                        consumer.accept(new Token.Variable(result.group()));
+                        consumer.accept(new Variable(result.group()));
                     }
                     else if (result.group("FUNC") != null) {
                         consumer.accept(switch (result.group()) {
-                            case "sin" -> Token.Function.SIN;
-                            case "cos" -> Token.Function.COS;
-                            case "tan" -> Token.Function.TAN;
+                            case "sin" -> Function.SIN;
+                            case "cos" -> Function.COS;
+                            case "tan" -> Function.TAN;
                             case String s when s.startsWith("log_") -> {
                                 String base_str = s.substring(4);
                                 try {
                                     double base = Double.parseDouble(base_str);
-                                    yield new Token.LogBase(base);
+                                    yield new LogBase(base);
                                 } catch (NumberFormatException nfe) {
-                                    yield new Token.Illegal(s);
+                                    yield new Illegal(s);
                                 }
                             }
-                            case "log" -> Token.Function.LOG;
-                            case "ln" -> Token.Function.LN;
-                            case "sqrt" -> Token.Function.SQRT;
-                            case "exp" -> Token.Function.EXP;
+                            case "log" -> Function.LOG;
+                            case "ln" -> Function.LN;
+                            case "sqrt" -> Function.SQRT;
+                            case "exp" -> Function.EXP;
                             default -> throw new IllegalStateException();
                         });
                     }
                     else if (result.group("CONST") != null) {
                         consumer.accept(switch (result.group()) {
-                            case "pi" -> Token.Constant.PI;
-                            case "e" -> Token.Constant.E;
+                            case "pi" -> Const.PI;
+                            case "e" -> Const.E;
                             default -> throw new IllegalStateException();
                         });
                     }
                     else if (result.group("ILLEGAL") != null) {
-                        consumer.accept(new Token.Illegal(result.group()));
+                        consumer.accept(new Illegal(result.group()));
                     }
                     else if (result.group("PAR") != null) {
-                        consumer.accept(new Token.Parameter(result.group()));
+                        consumer.accept(new Parameter(result.group()));
                     }
                     // Whitespace wird ignoriert
                 })
@@ -874,10 +880,10 @@ class ArithmeticTokenizer {
 sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.BinaryOp, Expr.FunctionCall, Expr.Constant, Expr.LogBase, Expr.Parameter {
     record Number(double value) implements Expr {}
     record Variable(String name) implements Expr {}
-    record UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr operand) implements Expr {}
-    record BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr left, Expr right) implements Expr {}
-    record FunctionCall(ArithmeticTokenizer.Token.Function function, Expr argument) implements Expr {}
-    record Constant(ArithmeticTokenizer.Token.Constant constant) implements Expr {}
+    record UnaryOp(Operator op, Expr operand) implements Expr {}
+    record BinaryOp(Operator op, Expr left, Expr right) implements Expr {}
+    record FunctionCall(Function function, Expr argument) implements Expr {}
+    record Constant(Const constant) implements Expr {}
     record LogBase(double base, Expr expr) implements Expr {}
     record Parameter(String name) implements Expr {}
     // (...)
@@ -888,9 +894,9 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
     default boolean containsVar() {
         return switch(this) {
             case Expr.Variable v -> true;
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> e.containsVar();
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> l.containsVar() || r.containsVar();
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function f, Expr arg) -> arg.containsVar();
+            case Expr.UnaryOp(Operator op, Expr e) -> e.containsVar();
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> l.containsVar() || r.containsVar();
+            case Expr.FunctionCall(Function f, Expr arg) -> arg.containsVar();
             case Expr.LogBase(double base, Expr arg) -> arg.containsVar();
             default -> false;
         };
@@ -903,9 +909,9 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
 
     default boolean containsParameter() {
         return switch(this) {
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> e.containsParameter();
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> l.containsParameter() || r.containsParameter();
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function f, Expr arg) -> arg.containsParameter();
+            case Expr.UnaryOp(Operator op, Expr e) -> e.containsParameter();
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> l.containsParameter() || r.containsParameter();
+            case Expr.FunctionCall(Function f, Expr arg) -> arg.containsParameter();
             case Expr.LogBase(double base, Expr arg) -> arg.containsParameter();
             case Expr.Parameter p -> true;
             default -> false;
@@ -921,11 +927,11 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
         return switch(this) {
             case Number n -> n.value();
             case Variable v -> x;
-            case UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> switch(op) {
+            case UnaryOp(Operator op, Expr e) -> switch(op) {
                 case NEG -> -e.eval(x);
                 default -> throw new UnsupportedOperationException();
             };
-            case BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> switch(op) {
+            case BinaryOp(Operator op, Expr l, Expr r) -> switch(op) {
                 case ADD -> l.eval(x) + r.eval(x);
                 case SUB -> l.eval(x) - r.eval(x);
                 case MUL -> l.eval(x) * r.eval(x);
@@ -933,7 +939,7 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
                 case POW -> Math.pow(l.eval(x), r.eval(x));
                 default -> throw new UnsupportedOperationException();
             };
-            case FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> switch(func) {
+            case FunctionCall(Function func, Expr arg) -> switch(func) {
                 case SIN -> Math.sin(arg.eval(x));
                 case COS -> Math.cos(arg.eval(x));
                 case TAN -> Math.tan(arg.eval(x));
@@ -942,7 +948,7 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
                 case SQRT -> Math.sqrt(arg.eval(x));
                 case EXP -> Math.exp(arg.eval(x));
             };
-            case Constant(ArithmeticTokenizer.Token.Constant c) -> switch(c) {
+            case Constant(Const c) -> switch(c) {
                 case PI -> Math.PI;
                 case E -> Math.E;
             };
@@ -980,19 +986,19 @@ class ASTVisualisation {
             case Expr.Number num -> dot_graph.append("  ").append(nodeID).append(" [label=\"").append(num.value()).append("\"];\n");
             case Expr.Variable variable -> dot_graph.append("  ").append(nodeID).append(" [label=\"").append(variable.name()).append("\"];\n");
             case Expr.Constant cons -> dot_graph.append("  ").append(nodeID).append(" [label=\"").append(cons.constant()).append("\"];\n");
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> {
+            case Expr.UnaryOp(Operator op, Expr e) -> {
                 dot_graph.append("  ").append(nodeID).append(" [label=\"").append(op.symbol).append("\"];\n");
                 String child_name = traverse(e);
                 dot_graph.append("  ").append(nodeID).append(" -> ").append(child_name).append(";\n");
             }
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> {
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
                 dot_graph.append("  ").append(nodeID).append(" [label=\"").append(op.symbol).append("\"];\n");
                 String leftId = traverse(l);
                 String rightId = traverse(r);
                 dot_graph.append("  ").append(nodeID).append(" -> ").append(leftId).append(";\n");
                 dot_graph.append("  ").append(nodeID).append(" -> ").append(rightId).append(";\n");
             }
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> {
+            case Expr.FunctionCall(Function func, Expr arg) -> {
                 dot_graph.append("  ").append(nodeID).append(" [label=\"").append(func.name()).append("\"];\n");
                 String argId = traverse(arg);
                 dot_graph.append("  ").append(nodeID).append(" -> ").append(argId).append(";\n");
@@ -1014,32 +1020,32 @@ class ASTVisualisation {
 
 // ================= Parser für Infix-Notation =================
 class InfixParser {
-    public static Expr parse(List<ArithmeticTokenizer.Token> tokens) {
+    public static Expr parse(List<Token> tokens) {
         Deque<Expr> output = new ArrayDeque<>();
-        Deque<ArithmeticTokenizer.Token> operators = new ArrayDeque<>();
+        Deque<Token> operators = new ArrayDeque<>();
 
         // Clerk.markdown("### Infix Parsing Steps");
         
-        for (ArithmeticTokenizer.Token token : tokens) {
+        for (Token token : tokens) {
             // Clerk.markdown("**Next Token:** " + token);
             switch (token) {
-                case ArithmeticTokenizer.Token.Number n -> {
+                case Number n -> {
                     output.push(new Expr.Number(n.value()));
                     // printStack(output, "Output");
                 }
-                case ArithmeticTokenizer.Token.Variable v -> {
+                case Variable v -> {
                     output.push(new Expr.Variable(v.name()));
                     // printStack(output, "Output");
                 }
-                case ArithmeticTokenizer.Token.Constant c -> {
+                case Const c -> {
                     output.push(new Expr.Constant(c));
                     // printStack(output, "Output");
                 }
-                case ArithmeticTokenizer.Token.Paren p -> {
-                    if (p == ArithmeticTokenizer.Token.Paren.OPEN) {
+                case Paren p -> {
+                    if (p == Paren.OPEN) {
                         operators.push(p);
                     } else {
-                        while (!operators.isEmpty() && operators.peek() != ArithmeticTokenizer.Token.Paren.OPEN) {
+                        while (!operators.isEmpty() && operators.peek() != Paren.OPEN) {
                             processOperator(output, operators.pop());
                             // printStack(output, "Output");
                         }
@@ -1047,15 +1053,15 @@ class InfixParser {
 
                         // Direkte Verarbeitung von Funktionen
                         if (!operators.isEmpty() &&
-                                (operators.peek() instanceof ArithmeticTokenizer.Token.Function ||
-                                 operators.peek() instanceof ArithmeticTokenizer.Token.LogBase)) {
+                                (operators.peek() instanceof Function ||
+                                 operators.peek() instanceof LogBase)) {
                             processOperator(output, operators.pop());
                             // printStack(output, "Output");
                         }
                     }
                     // printStack(operators, "Operators");
                 }
-                case ArithmeticTokenizer.Token.Operator op -> {
+                case Operator op -> {
                     while (!operators.isEmpty() && shouldProcessOperator(operators.peek(), op)) {
                         processOperator(output, operators.pop());
                         // printStack(output, "Output");
@@ -1063,15 +1069,16 @@ class InfixParser {
                     operators.push(op);
                     // printStack(operators, "Operators");
                 }
-                case ArithmeticTokenizer.Token.Function f -> {
+                case Function f -> {
+                    // TODO: Adding support for multi-values in exponent like 3*x^(2*x+4) 
                     operators.push(f);
                     // printStack(operators, "Operators");
                 }
-                case ArithmeticTokenizer.Token.LogBase log_base -> {
+                case LogBase log_base -> {
                     operators.push(log_base);
                     // printStack(operators, "Operators");
                 }
-                case ArithmeticTokenizer.Token.Parameter par -> {
+                case Parameter par -> {
                     output.push(new Expr.Parameter(par.name()));
                     // printStack(output, "Output");
                 }
@@ -1110,20 +1117,20 @@ class InfixParser {
     // private static String itemToString(Object item) {
     //     if (item instanceof Expr expr) {
     //         return exprToString(expr);
-    //     } else if (item instanceof ArithmeticTokenizer.Token token) {
+    //     } else if (item instanceof Token token) {
     //         return tokenToString(token);
     //     }
     //     return item.toString();
     // }
 
-    // private static String tokenToString(ArithmeticTokenizer.Token token) {
+    // private static String tokenToString(Token token) {
     //     return switch (token) {
-    //         case ArithmeticTokenizer.Token.Number n -> String.valueOf(n.value());
-    //         case ArithmeticTokenizer.Token.Variable v -> v.name();
-    //         case ArithmeticTokenizer.Token.Constant c -> c.symbol;
-    //         case ArithmeticTokenizer.Token.Operator op -> op.symbol;
-    //         case ArithmeticTokenizer.Token.Paren p -> p.symbol;
-    //         case ArithmeticTokenizer.Token.Function f -> f.name();
+    //         case Number n -> String.valueOf(n.value());
+    //         case Variable v -> v.name();
+    //         case Constant c -> c.symbol;
+    //         case Operator op -> op.symbol;
+    //         case Paren p -> p.symbol;
+    //         case Function f -> f.name();
     //         default -> token.toString();
     //     };
     // }
@@ -1143,10 +1150,10 @@ class InfixParser {
     // }
     // ################  DEBUGGING METHODEN END ###################
     
-    private static boolean shouldProcessOperator(ArithmeticTokenizer.Token top, ArithmeticTokenizer.Token.Operator current) {
-        if (top instanceof ArithmeticTokenizer.Token.Paren) return false;
+    private static boolean shouldProcessOperator(Token top, Operator current) {
+        if (top instanceof Paren) return false;
             
-        if (top instanceof ArithmeticTokenizer.Token.Operator topOp) {
+        if (top instanceof Operator topOp) {
             int topPrec = precedence(topOp);
             int currPrec = precedence(current);
             return topPrec > currPrec || (topPrec == currPrec && associativity(current) == Assoc.LEFT);
@@ -1154,7 +1161,7 @@ class InfixParser {
         return false;
     }
     
-    private static int precedence(ArithmeticTokenizer.Token.Operator op) {
+    private static int precedence(Operator op) {
         return switch (op) {
             case POW -> 4;
             case NEG -> 3;
@@ -1165,14 +1172,14 @@ class InfixParser {
     
     private enum Assoc { LEFT, RIGHT }
     
-    private static Assoc associativity(ArithmeticTokenizer.Token.Operator op) {
-        return op == ArithmeticTokenizer.Token.Operator.POW ? Assoc.RIGHT : Assoc.LEFT;
+    private static Assoc associativity(Operator op) {
+        return op == Operator.POW ? Assoc.RIGHT : Assoc.LEFT;
     }
     
-    private static void processOperator(Deque<Expr> output, ArithmeticTokenizer.Token op) {
+    private static void processOperator(Deque<Expr> output, Token op) {
         switch (op) {
-            case ArithmeticTokenizer.Token.Operator operator -> {
-                if (operator == ArithmeticTokenizer.Token.Operator.NEG) {
+            case Operator operator -> {
+                if (operator == Operator.NEG) {
                     Expr operand = output.pop();
                     output.push(new Expr.UnaryOp(operator, operand));
                 }
@@ -1182,11 +1189,11 @@ class InfixParser {
                     output.push(new Expr.BinaryOp(operator, left, right));
                 }
             }
-            case ArithmeticTokenizer.Token.Function function -> {
+            case Function function -> {
                 Expr arg = output.pop();
                 output.push(new Expr.FunctionCall(function, arg));
             }
-            case ArithmeticTokenizer.Token.LogBase log_base -> {
+            case LogBase log_base -> {
                 Expr arg = output.pop();
                 output.push(new Expr.LogBase(log_base.base(), arg)); 
             }
@@ -1199,23 +1206,23 @@ class InfixParser {
 
 // ================= Parser für UPN-Notation =================
 class UPNParser {
-    public static Expr parse(List<ArithmeticTokenizer.Token> tokens) {
+    public static Expr parse(List<Token> tokens) {
         Deque<Expr> stack = new ArrayDeque<>();
         // Clerk.markdown("### UPN Parsing Steps");
-        for (ArithmeticTokenizer.Token token : tokens) {
+        for (Token token : tokens) {
             // Clerk.markdown("**Next Token:** " + token);
             switch (token) {
-                case ArithmeticTokenizer.Token.Number n -> {
+                case Number n -> {
                     stack.push(new Expr.Number(n.value())); // printStack(stack);
                 }
-                case ArithmeticTokenizer.Token.Variable v -> {
+                case Variable v -> {
                     stack.push(new Expr.Variable(v.name())); // printStack(stack);
                 }                       
-                case ArithmeticTokenizer.Token.Constant c -> {
+                case Const c -> {
                     stack.push(new Expr.Constant(c)); // printStack(stack);
                 }
-                case ArithmeticTokenizer.Token.Operator op -> {
-                    if (op == ArithmeticTokenizer.Token.Operator.NEG) {
+                case Operator op -> {
+                    if (op == Operator.NEG) {
                         Expr operand = stack.pop();
                         stack.push(new Expr.UnaryOp(op, operand));
                     } else {
@@ -1225,16 +1232,16 @@ class UPNParser {
                     }
                     // printStack(stack);
                 }
-                case ArithmeticTokenizer.Token.Function f -> {
+                case Function f -> {
                     Expr arg = stack.pop();
                     stack.push(new Expr.FunctionCall(f, arg));
                     // printStack(stack);
                 }
-                case ArithmeticTokenizer.Token.LogBase log_base -> {
+                case LogBase log_base -> {
                     Expr arg = stack.pop();
                     stack.push(new Expr.LogBase(log_base.base(), arg));
                 }
-                case ArithmeticTokenizer.Token.Parameter p -> {
+                case Parameter p -> {
                     stack.push(new Expr.Parameter(p.name()));
                 }
                 default -> throw new IllegalArgumentException("Invalid UPN token: " + token);
@@ -1264,10 +1271,10 @@ class UPNParser {
             case Expr.Number n -> String.valueOf(n.value());
             case Expr.Variable v -> v.name();
             case Expr.Constant c -> c.constant().symbol;
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> op.symbol + "(" + exprToString(e) + ")";
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> 
+            case Expr.UnaryOp(Operator op, Expr e) -> op.symbol + "(" + exprToString(e) + ")";
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> 
                 "(" + exprToString(l) + " " + op.symbol + " " + exprToString(r) + ")";
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function f, Expr arg) -> f.name() + "(" + exprToString(arg) + ")";
+            case Expr.FunctionCall(Function f, Expr arg) -> f.name() + "(" + exprToString(arg) + ")";
             case Expr.LogBase(Double base, Expr e) -> "log_" + base + "(" + exprToString(e) + ")";
             case Expr.Parameter p -> p.name();  
         };
@@ -1278,7 +1285,7 @@ class UPNParser {
 class Parser {
     // cut combined parse 
     public static Expr parse(String input) {
-        List<ArithmeticTokenizer.Token> tokens = ArithmeticTokenizer.tokenize(input);
+        List<Token> tokens = ArithmeticTokenizer.tokenize(input);
         // Zuerst UPN versuchen
         try {
             validateUPN(tokens);
@@ -1298,23 +1305,23 @@ class Parser {
     }
     // cut combined parse 
     
-    private static void validateUPN(List<ArithmeticTokenizer.Token> tokens) {
+    private static void validateUPN(List<Token> tokens) {
         Deque<Integer> stack = new ArrayDeque<>();
         
-        for (ArithmeticTokenizer.Token token : tokens) {
+        for (Token token : tokens) {
             if (isOperand(token)) {
                 stack.push(1);
             } 
             else if (isOperator(token)) {
-                if (stack.size() < requiredOperands((ArithmeticTokenizer.Token.Operator) token)) {
+                if (stack.size() < requiredOperands((Operator) token)) {
                     throw new IllegalArgumentException(
                         "Nicht genug Operanden für Operator " + token);
                 }
-                int operands = requiredOperands((ArithmeticTokenizer.Token.Operator) token);
+                int operands = requiredOperands((Operator) token);
                 for (int i = 0; i < operands; i++) stack.pop();
                 stack.push(1);
             } 
-            else if (token instanceof ArithmeticTokenizer.Token.Function) {
+            else if (token instanceof Function) {
                 if (stack.isEmpty()) {
                     throw new IllegalArgumentException(
                         "Nicht genug Operanden für Funktion " + token);
@@ -1322,7 +1329,7 @@ class Parser {
                 stack.pop();
                 stack.push(1);
             } 
-            else if (!(token instanceof ArithmeticTokenizer.Token.Illegal)) {
+            else if (!(token instanceof Illegal)) {
                 throw new IllegalArgumentException("Ungültiges UPN Token: " + token);
             }
         }
@@ -1333,19 +1340,19 @@ class Parser {
         }
     }
     
-    private static boolean isOperand(ArithmeticTokenizer.Token token) {
-        return token instanceof ArithmeticTokenizer.Token.Number ||
-               token instanceof ArithmeticTokenizer.Token.Variable ||
-               token instanceof ArithmeticTokenizer.Token.Constant ||
-               token instanceof ArithmeticTokenizer.Token.Parameter;
+    private static boolean isOperand(Token token) {
+        return token instanceof Number ||
+               token instanceof Variable ||
+               token instanceof Const ||
+               token instanceof Parameter;
     }
     
-    private static boolean isOperator(ArithmeticTokenizer.Token token) {
-        return token instanceof ArithmeticTokenizer.Token.Operator;
+    private static boolean isOperator(Token token) {
+        return token instanceof Operator;
     }
     
-    private static int requiredOperands(ArithmeticTokenizer.Token.Operator op) {
-        return op == ArithmeticTokenizer.Token.Operator.NEG ? 1 : 2;
+    private static int requiredOperands(Operator op) {
+        return op == Operator.NEG ? 1 : 2;
     }
 
 }
@@ -1361,14 +1368,14 @@ class InfixGenerator {
             case Expr.Number n -> String.valueOf(n.value());
             case Expr.Variable v -> v.name();
             case Expr.Constant c -> c.constant().symbol;
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> 
+            case Expr.UnaryOp(Operator op, Expr e) -> 
                 op.symbol + generate(e, true);
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> {
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
                 String result = generate(l, true) + " " + op.symbol + " " + generate(r, true);
                 // yield needsParens ? "(" + result + ")" : result;
                 yield result;
             }
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function f, Expr arg) -> 
+            case Expr.FunctionCall(Function f, Expr arg) -> 
                 f.name() + "(" + generate(arg) + ")";
             case Expr.LogBase(Double base, Expr arg) -> 
                 "log_" + base + "(" + generate(arg) + ")";
@@ -1390,16 +1397,16 @@ class UPNGenerator {
             case Expr.Number n -> sb.append(n.value()).append(" ");
             case Expr.Variable v -> sb.append(v.name()).append(" ");
             case Expr.Constant c -> sb.append(c.constant().symbol).append(" ");
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> {
+            case Expr.UnaryOp(Operator op, Expr e) -> {
                 generate(e, sb);
                 sb.append(op.symbol).append(" ");
             }
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> {
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
                 generate(l, sb);
                 generate(r, sb);
                 sb.append(op.symbol).append(" ");
             }
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function f, Expr arg) -> {
+            case Expr.FunctionCall(Function f, Expr arg) -> {
                 generate(arg, sb);
                 sb.append(f.name()).append(" ");
             }
@@ -1419,41 +1426,41 @@ class Differentiator {
         return switch (expr) {
             case Expr.Number n -> new Expr.Number(0);
             case Expr.Variable v -> new Expr.Number(1);
-            case Expr.Constant(ArithmeticTokenizer.Token.Constant constant) -> {
+            case Expr.Constant(Const constant) -> {
                 yield switch(constant) {
                     case PI -> new Expr.Number(0);
                     case E -> new Expr.Number(0);
                 };
             }
-            case Expr.UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> {
+            case Expr.UnaryOp(Operator op, Expr e) -> {
                 yield switch(op) {
-                    case NEG -> new Expr.UnaryOp(ArithmeticTokenizer.Token.Operator.NEG, derive(e));
+                    case NEG -> new Expr.UnaryOp(Operator.NEG, derive(e));
                     default -> throw new UnsupportedOperationException();
                 };
             }
-            case Expr.BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> {
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
                 yield switch(op) {
-                    case ADD -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.ADD, derive(l), derive(r));
-                    case SUB -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.SUB, derive(l), derive(r));
+                    case ADD -> new Expr.BinaryOp(Operator.ADD, derive(l), derive(r));
+                    case SUB -> new Expr.BinaryOp(Operator.SUB, derive(l), derive(r));
                     // Produktregel: (u * v)' => u' * v + u * v'
-                    case MUL -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.ADD, 
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, derive(l), r),
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, l, derive(r))
+                    case MUL -> new Expr.BinaryOp(Operator.ADD, 
+                        new Expr.BinaryOp(Operator.MUL, derive(l), r),
+                        new Expr.BinaryOp(Operator.MUL, l, derive(r))
                     );
                     // Quotientenregel: (u / v)' => (u' * v - u * v') / (v * v)
-                    case DIV -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.SUB,
-                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, derive(l), r),
-                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, l, derive(r))
+                    case DIV -> new Expr.BinaryOp(Operator.DIV,
+                        new Expr.BinaryOp(Operator.SUB,
+                            new Expr.BinaryOp(Operator.MUL, derive(l), r),
+                            new Expr.BinaryOp(Operator.MUL, l, derive(r))
                         ),
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, r, r)
+                        new Expr.BinaryOp(Operator.MUL, r, r)
                     );
                     // Potenzregel: x^n => n * x^(n-1)
                     case POW -> {
                         if (r instanceof Expr.Number n) {
-                            yield new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL, 
+                            yield new Expr.BinaryOp(Operator.MUL, 
                                 new Expr.Number(n.value()),
-                                new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.POW,
+                                new Expr.BinaryOp(Operator.POW,
                                     l,
                                     new Expr.Number(n.value() - 1)
                                 )
@@ -1462,66 +1469,66 @@ class Differentiator {
                             throw new UnsupportedOperationException("Nur x^n unterstützt.");
                         }
                     }
-                    default -> throw new UnsupportedOperationException();
+                    default -> throw new UnsupportedOperationException("Operation " + op + " wird nicht unterstützt");
                 };
             }
-            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> {
+            case Expr.FunctionCall(Function func, Expr arg) -> {
                 yield switch(func) {
-                    case SIN -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                        new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.COS, arg),
+                    case SIN -> new Expr.BinaryOp(Operator.MUL,
+                        new Expr.FunctionCall(Function.COS, arg),
                         derive(arg)
                     );
-                    case COS -> new Expr.UnaryOp(ArithmeticTokenizer.Token.Operator.NEG,
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                            new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.SIN, arg),
+                    case COS -> new Expr.UnaryOp(Operator.NEG,
+                        new Expr.BinaryOp(Operator.MUL,
+                            new Expr.FunctionCall(Function.SIN, arg),
                             derive(arg)
                         )  
                     );
-                    case TAN -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                    case TAN -> new Expr.BinaryOp(Operator.MUL,
+                        new Expr.BinaryOp(Operator.DIV,
                             new Expr.Number(1),
-                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.POW,
-                                new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.COS, arg),
+                            new Expr.BinaryOp(Operator.POW,
+                                new Expr.FunctionCall(Function.COS, arg),
                                 new Expr.Number(2)
                             )
                         ),
                         derive(arg)
                     );
-                    case LOG -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                    case LOG -> new Expr.BinaryOp(Operator.MUL,
+                        new Expr.BinaryOp(Operator.DIV,
                             new Expr.Number(1),
-                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                            new Expr.BinaryOp(Operator.MUL,
                                 arg,
-                                new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.LN, new Expr.Number(10))
+                                new Expr.FunctionCall(Function.LN, new Expr.Number(10))
                             )
                         ),
                         derive(arg)
                     );
-                    case LN -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                    case LN -> new Expr.BinaryOp(Operator.MUL,
+                        new Expr.BinaryOp(Operator.DIV,
                             new Expr.Number(1),
                             arg
                         ),
                         derive(arg)
                     );
-                    case SQRT -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                    case SQRT -> new Expr.BinaryOp(Operator.MUL,
+                        new Expr.BinaryOp(Operator.DIV,
                             new Expr.Number(1),
-                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                            new Expr.BinaryOp(Operator.MUL,
                                 new Expr.Number(2),
-                                new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.SQRT, arg)
+                                new Expr.FunctionCall(Function.SQRT, arg)
                             )
                         ),
                         derive(arg)
                     );
-                    case EXP -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
-                        new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.EXP, arg),
+                    case EXP -> new Expr.BinaryOp(Operator.MUL,
+                        new Expr.FunctionCall(Function.EXP, arg),
                         derive(arg)
                     );
-                    default -> throw new UnsupportedOperationException("Coming soon");
+                    default -> throw new UnsupportedOperationException("Funktion " + func + " wird nicht unterstützt");
                 };
             }
-            default -> throw new UnsupportedOperationException("Coming soon");
+            default -> throw new UnsupportedOperationException("Operation wird nicht unterstützt");
             
         };
     }
