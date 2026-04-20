@@ -7,7 +7,7 @@ WORKDIR /app
 COPY src/lvp-0.5.4.jar .
 COPY src/funktionsplotter.java .
 COPY src/Turtle.java .
-COPY src/start.sh .
+COPY scripts/start.sh .
 
 RUN chmod +x start.sh
 

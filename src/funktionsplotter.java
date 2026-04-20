@@ -327,11 +327,16 @@ void main() {
     Expr second_derived_expr = Differentiator.derive(first_derived_expr); // 12 * x^2
     Expr third_derived_expr = Differentiator.derive(second_derived_expr); // 24 * x
 
+    Expr tangens_func = Differentiator.derive(Parser.parse("tan(2*x)"));
+    String tangens = InfixGenerator.generate(tangens_func);
+    Clerk.markdown(String.format("**Ableitung von tan(2*x):** %s", tangens));
+
     p3.redraw();
-    p3.plotFunction(normal_expr);
-    p3.plotFunction(first_derived_expr);
-    p3.plotFunction(second_derived_expr);
-    p3.plotFunction(third_derived_expr);
+    //p3.plotFunction(normal_expr);
+    //p3.plotFunction(first_derived_expr);
+    //p3.plotFunction(second_derived_expr);
+    //p3.plotFunction(third_derived_expr);
+    p3.plotFunction(tangens_func);
     p3.startTurtle();
 
 
@@ -366,13 +371,15 @@ void main() {
 
     // Funktionen
     String[] examples = {
+        "tan(2*x)",
         "sin(x) + cos(x)", // Infix mit Funktion
-        "a * e^x + 6",
-        "4*x^3 + log_4(x)",
-        "1/x",
-        "45 cos 10 * 9 sqrt +",
-        "x^4 + 5*x + 9",
-        "4*x^3 + 5",
+        "sqrt(x+4)"
+        //"a * e^x + 6",
+        //"4*x^3 + log_4(x)",
+        //"1/x",
+        //"45 cos 10 * 9 sqrt +",
+        //"x^4 + 5*x + 9",
+        //"4*x^3 + 5",
         //"3 x 2 ^ * 5 -", // UPN mit Variable
         // "x sin x cos +",   // UPN mit Funktion
         // "(6 + 2) * 2", // Infix mit Klammern
@@ -1455,7 +1462,63 @@ class Differentiator {
                             throw new UnsupportedOperationException("Nur x^n unterstützt.");
                         }
                     }
-                    default -> throw new UnsupportedOperationException("Operator is not implemented yet.");
+                    default -> throw new UnsupportedOperationException();
+                };
+            }
+            case Expr.FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> {
+                yield switch(func) {
+                    case SIN -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                        new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.COS, arg),
+                        derive(arg)
+                    );
+                    case COS -> new Expr.UnaryOp(ArithmeticTokenizer.Token.Operator.NEG,
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                            new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.SIN, arg),
+                            derive(arg)
+                        )  
+                    );
+                    case TAN -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                            new Expr.Number(1),
+                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.POW,
+                                new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.COS, arg),
+                                new Expr.Number(2)
+                            )
+                        ),
+                        derive(arg)
+                    );
+                    case LOG -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                            new Expr.Number(1),
+                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                                arg,
+                                new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.LN, new Expr.Number(10))
+                            )
+                        ),
+                        derive(arg)
+                    );
+                    case LN -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                            new Expr.Number(1),
+                            arg
+                        ),
+                        derive(arg)
+                    );
+                    case SQRT -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                        new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.DIV,
+                            new Expr.Number(1),
+                            new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                                new Expr.Number(2),
+                                new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.SQRT, arg)
+                            )
+                        ),
+                        derive(arg)
+                    );
+                    case EXP -> new Expr.BinaryOp(ArithmeticTokenizer.Token.Operator.MUL,
+                        new Expr.FunctionCall(ArithmeticTokenizer.Token.Function.EXP, arg),
+                        derive(arg)
+                    );
+                    default -> throw new UnsupportedOperationException("Coming soon");
                 };
             }
             default -> throw new UnsupportedOperationException("Coming soon");
@@ -1463,45 +1526,9 @@ class Differentiator {
         };
     }
 }
-    /*
-    record Number(double value) implements Expr {}
-    record Variable(String name) implements Expr {}
-    record UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr operand) implements Expr {}
-    record BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr left, Expr right) implements Expr {}
-    record FunctionCall(ArithmeticTokenizer.Token.Function function, Expr argument) implements Expr {}
-    record Constant(ArithmeticTokenizer.Token.Constant constant) implements Expr {}
-    record LogBase(double base, Expr expr) implements Expr {}
-    record Parameter(String name) implements Expr {}
-
-        private double eval(double x) {
+/*
+    private double eval(double x) {
         return switch(this) {
-            case Number n -> n.value();
-            case Variable v -> x;
-            case UnaryOp(ArithmeticTokenizer.Token.Operator op, Expr e) -> switch(op) {
-                case NEG -> -e.eval(x);
-                default -> throw new UnsupportedOperationException();
-            };
-            case BinaryOp(ArithmeticTokenizer.Token.Operator op, Expr l, Expr r) -> switch(op) {
-                case ADD -> l.eval(x) + r.eval(x);
-                case SUB -> l.eval(x) - r.eval(x);
-                case MUL -> l.eval(x) * r.eval(x);
-                case DIV -> l.eval(x) / r.eval(x);
-                case POW -> Math.pow(l.eval(x), r.eval(x));
-                default -> throw new UnsupportedOperationException();
-            };
-            case FunctionCall(ArithmeticTokenizer.Token.Function func, Expr arg) -> switch(func) {
-                case SIN -> Math.sin(arg.eval(x));
-                case COS -> Math.cos(arg.eval(x));
-                case TAN -> Math.tan(arg.eval(x));
-                case LOG -> Math.log10(arg.eval(x));
-                case LN -> Math.log(arg.eval(x));
-                case SQRT -> Math.sqrt(arg.eval(x));
-                case EXP -> Math.exp(arg.eval(x));
-            };
-            case Constant(ArithmeticTokenizer.Token.Constant c) -> switch(c) {
-                case PI -> Math.PI;
-                case E -> Math.E;
-            };
             case LogBase(Double base, Expr arg) -> Math.log(arg.eval(x)) / Math.log(base);
             case Parameter p -> { 
                 Double value = parameters.get(p.name());
@@ -1510,5 +1537,4 @@ class Differentiator {
             }
         };
     }
-
-    */
+*/
