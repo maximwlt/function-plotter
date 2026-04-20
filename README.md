@@ -1,3 +1,8 @@
+## Overview
+I built a function plotter in Java featuring a custom parser for infix and reverse polish notation (RPN), AST-based evaluation, and symbolic differentiation. Includes support for common mathematical functions, parameters, and graph visualization. It is built using LiveViewProgramming for interactive browser-based output. <br>
+📌 Credits to D. Herzberg's [*LiveViewProgramming*]("https://github.com/denkspuren/LiveViewProgramming") for providing the
+Java-based live coding environment.
+
 ## Execution Guide for LVP with the Code
 **Steps:**
 1. Install at least JDK-24.
