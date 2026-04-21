@@ -321,20 +321,28 @@ void main() {
 
     """);
 
-    Plotter p3 = new Plotter(-15, 15, -10, 16);
+    Plotter p3 = new Plotter(-20, 20, -20, 20);
     Expr normal_expr = Parser.parse("x^4 + 5*x + 9");
     Expr first_derived_expr = Differentiator.derive(normal_expr); // 4 * x^3 + 5
     Expr second_derived_expr = Differentiator.derive(first_derived_expr); // 12 * x^2
     Expr third_derived_expr = Differentiator.derive(second_derived_expr); // 24 * x
 
-    Expr tangens_func = Differentiator.derive(Parser.parse("tan(2*x)"));
-    String tangens = InfixGenerator.generate(tangens_func);
-    Clerk.markdown(String.format("**Ableitung von tan(2*x):** %s", tangens));
 
-    Expr e_function = Parser.parse("2 * e^5 * x^2");
-    Clerk.markdown(String.format("**Funktion:** %s", InfixGenerator.generate(e_function)));
-    Expr e_function_derived = Differentiator.derive(e_function);
-    Clerk.markdown(String.format("**Ableitung:** %s", InfixGenerator.generate(e_function_derived)));
+    Expr example_e = Parser.parse("(3*x^2 - 1)/(e^(2*x^3) + 4*x)");
+    Expr first_derived_example_e = Differentiator.derive(example_e);
+    Expr first_derived_example_e_simplified = Differentiator.simplify(first_derived_example_e);
+    Expr second_derived_example_e = Differentiator.derive(first_derived_example_e);
+    Expr second_derived_example_e_simplified = Differentiator.simplify(second_derived_example_e);
+
+    InfixGenerator infixGen = new InfixGenerator();
+    String example_e_infix = infixGen.generate(example_e);
+    String first_derived_example_e_infix = infixGen.generate(first_derived_example_e);
+    String second_derived_example_e_infix = infixGen.generate(second_derived_example_e);
+    Clerk.markdown("**Erste Ableitung vor Vereinfachung:** " + infixGen.generate(first_derived_example_e));
+    Clerk.markdown("**Erste Ableitung nach Vereinfachung:** " + infixGen.generate(first_derived_example_e_simplified));
+    Clerk.markdown("**Zweite Ableitung vor Vereinfachung:** " + infixGen.generate(second_derived_example_e));
+    Clerk.markdown("**Zweite Ableitung nach Vereinfachung:** " + infixGen.generate(second_derived_example_e_simplified));
+
 
     p3.redraw();
     //p3.plotFunction(normal_expr);
@@ -342,7 +350,9 @@ void main() {
     //p3.plotFunction(second_derived_expr);
     //p3.plotFunction(third_derived_expr);
     //p3.plotFunction(tangens_func);
-    p3.plotFunction(e_function);
+    p3.plotFunction(example_e);
+    p3.plotFunction(first_derived_example_e);
+    p3.plotFunction(second_derived_example_e);
 
     p3.startTurtle();
 
@@ -378,8 +388,9 @@ void main() {
 
     // Funktionen
     String[] examples = {
-        "2 * e^5 * x^2",
-        InfixGenerator.generate(e_function_derived),
+        "2 * e^x * x^2",
+        "x^(6*x) + 5",
+        "(3*x^2 - 1)/(e^(2*x^3) + 4*x)",
         //"sin(x) + cos(x)", // Infix mit Funktion
         //sqrt(x+4)"
         //"a * e^x + 6",
@@ -878,6 +889,16 @@ class ArithmeticTokenizer {
 // ================= AST (Abstrakter Syntaxbaum) =================
 // cut Expr SI
 sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.BinaryOp, Expr.FunctionCall, Expr.Constant, Expr.LogBase, Expr.Parameter {
+    record Number(double value) implements Expr {}
+    record Variable(String name) implements Expr {}
+    record UnaryOp(Operator op, Expr operand) implements Expr {}
+    record BinaryOp(Operator op, Expr left, Expr right) implements Expr {}
+    record FunctionCall(Function function, Expr argument) implements Expr {}
+    record Constant(Const constant) implements Expr {}
+    record LogBase(double base, Expr expr) implements Expr {}
+    record Parameter(String name) implements Expr {}
+    // (...)
+// cut Expr SI
 
     static Expr num(double value) { return new Number(value); }
     static Expr var(String name) { return new Variable(name); }
@@ -889,20 +910,9 @@ sealed interface Expr permits Expr.Number, Expr.Variable, Expr.UnaryOp, Expr.Bin
     static Expr pow(Expr l, Expr r) { return new BinaryOp(Operator.POW, l, r); }
     static Expr function(Function f, Expr arg) { return new FunctionCall(f, arg); }
     static Expr constant(Const c) { return new Constant(c); }
-    // static Expr logBase(double base, Expr arg) { return new LogBase(base, arg); }
+    static Expr logBase(double base, Expr arg) { return new LogBase(base, arg); }
     static Expr param(String name) { return new Parameter(name); }
 
-
-    record Number(double value) implements Expr {}
-    record Variable(String name) implements Expr {}
-    record UnaryOp(Operator op, Expr operand) implements Expr {}
-    record BinaryOp(Operator op, Expr left, Expr right) implements Expr {}
-    record FunctionCall(Function function, Expr argument) implements Expr {}
-    record Constant(Const constant) implements Expr {}
-    record LogBase(double base, Expr expr) implements Expr {}
-    record Parameter(String name) implements Expr {}
-    // (...)
-// cut Expr SI    
     Map<String, Double> parameters = new HashMap<>();
 
     // cut out tryEval
@@ -1038,30 +1048,36 @@ class InfixParser {
         Deque<Expr> output = new ArrayDeque<>();
         Deque<Token> operators = new ArrayDeque<>();
 
-        // Clerk.markdown("### Infix Parsing Steps");
+        Clerk.markdown("### Infix Parsing Steps");
         
         for (Token token : tokens) {
-            // Clerk.markdown("**Next Token:** " + token);
+            Clerk.markdown("**Next Token:** " + token);
             switch (token) {
                 case Number n -> {
-                    output.push(new Expr.Number(n.value()));
-                    // printStack(output, "Output");
+                    output.push(Expr.num(n.value()));
+                    printStack(output, "Output");
                 }
                 case Variable v -> {
-                    output.push(new Expr.Variable(v.name()));
-                    // printStack(output, "Output");
+                    output.push(Expr.var(v.name()));
+                    printStack(output, "Output");
                 }
                 case Const c -> {
-                    output.push(new Expr.Constant(c));
-                    // printStack(output, "Output");
+                    output.push(Expr.constant(c));
+                    printStack(output, "Output");
                 }
                 case Paren p -> {
                     if (p == Paren.OPEN) {
+
+                        // Token token = operators.peek();
+                        // if (token instanceof Operator && ((Operator) token).symbol.equals("^")) 
+    
+
                         operators.push(p);
+                        
                     } else {
                         while (!operators.isEmpty() && operators.peek() != Paren.OPEN) {
                             processOperator(output, operators.pop());
-                            // printStack(output, "Output");
+                            printStack(output, "Output");
                         }
                         operators.pop(); // Öffnende Klammer entfernen
 
@@ -1070,31 +1086,32 @@ class InfixParser {
                                 (operators.peek() instanceof Function ||
                                  operators.peek() instanceof LogBase)) {
                             processOperator(output, operators.pop());
-                            // printStack(output, "Output");
+                            printStack(output, "Output");
                         }
                     }
-                    // printStack(operators, "Operators");
+                    printStack(operators, "Operators");
                 }
                 case Operator op -> {
+
                     while (!operators.isEmpty() && shouldProcessOperator(operators.peek(), op)) {
                         processOperator(output, operators.pop());
-                        // printStack(output, "Output");
+                        printStack(output, "Output");
                     }
                     operators.push(op);
-                    // printStack(operators, "Operators");
+                    printStack(operators, "Operators");
                 }
                 case Function f -> {
                     // TODO: Adding support for multi-values in exponent like 3*x^(2*x+4) 
                     operators.push(f);
-                    // printStack(operators, "Operators");
+                    printStack(operators, "Operators");
                 }
                 case LogBase log_base -> {
                     operators.push(log_base);
-                    // printStack(operators, "Operators");
+                    printStack(operators, "Operators");
                 }
                 case Parameter par -> {
-                    output.push(new Expr.Parameter(par.name()));
-                    // printStack(output, "Output");
+                    output.push(Expr.param(par.name()));
+                    printStack(output, "Output");
                 }
                 default -> throw new IllegalArgumentException("Unexpected token: " + token);
             }
@@ -1111,58 +1128,6 @@ class InfixParser {
 
         return output.pop();
     }
-
-
-    // ################# DEBUGGING METHODEN START #################
-
-    // private static void printStack(Deque<?> stack, String name) {
-    //     StringBuilder sb = new StringBuilder();
-    //     sb.append(name).append(" Stack: [");
-    //     for (Object item : stack) {
-    //         sb.append(itemToString(item)).append(", ");
-    //     }
-    //     if (!stack.isEmpty()) {
-    //         sb.setLength(sb.length() - 2); // ", " entfernen
-    //     }
-    //     sb.append("]");
-    //     Clerk.markdown(sb.toString());
-    // }
-
-    // private static String itemToString(Object item) {
-    //     if (item instanceof Expr expr) {
-    //         return exprToString(expr);
-    //     } else if (item instanceof Token token) {
-    //         return tokenToString(token);
-    //     }
-    //     return item.toString();
-    // }
-
-    // private static String tokenToString(Token token) {
-    //     return switch (token) {
-    //         case Number n -> String.valueOf(n.value());
-    //         case Variable v -> v.name();
-    //         case Constant c -> c.symbol;
-    //         case Operator op -> op.symbol;
-    //         case Paren p -> p.symbol;
-    //         case Function f -> f.name();
-    //         default -> token.toString();
-    //     };
-    // }
-
-    // private static String exprToString(Expr expr) {
-    //     return switch (expr) {
-    //         case Expr.Number n -> String.valueOf(n.value());
-    //         case Expr.Variable v -> v.name();
-    //         case Expr.Constant c -> c.constant().symbol;
-    //         case Expr.UnaryOp(var op, var e) -> op.symbol + "(" + exprToString(e) + ")";
-    //         case Expr.BinaryOp(var op, var l, var r) -> 
-    //             "(" + exprToString(l) + " " + op.symbol + " " + exprToString(r) + ")";
-    //         case Expr.FunctionCall(var f, var arg) -> f.name() + "(" + exprToString(arg) + ")";
-    //         case Expr.LogBase(var base, var e) -> "log_" + base + "(" + exprToString(e) + ")";
-    //         case Expr.Parameter p -> p.name();
-    //     };
-    // }
-    // ################  DEBUGGING METHODEN END ###################
     
     private static boolean shouldProcessOperator(Token top, Operator current) {
         if (top instanceof Paren) return false;
@@ -1195,28 +1160,85 @@ class InfixParser {
             case Operator operator -> {
                 if (operator == Operator.NEG) {
                     Expr operand = output.pop();
-                    output.push(new Expr.UnaryOp(operator, operand));
+                    output.push(Expr.neg(operand));
                 }
                 else {
                     Expr right = output.pop();
                     Expr left = output.pop();
-                    output.push(new Expr.BinaryOp(operator, left, right));
+                    output.push(switch(operator) {
+                        case ADD -> Expr.add(left, right);
+                        case SUB -> Expr.sub(left, right);
+                        case MUL -> Expr.mul(left, right);
+                        case DIV -> Expr.div(left, right);
+                        case POW -> Expr.pow(left, right);
+                        default -> throw new UnsupportedOperationException("Operator " + operator + " wird nicht unterstützt");
+                    });
                 }
             }
             case Function function -> {
                 Expr arg = output.pop();
-                output.push(new Expr.FunctionCall(function, arg));
+                output.push(Expr.function(function, arg));
             }
             case LogBase log_base -> {
                 Expr arg = output.pop();
-                output.push(new Expr.LogBase(log_base.base(), arg)); 
+                output.push(Expr.logBase(log_base.base(), arg)); 
             }
             default -> throw new IllegalArgumentException("Unexpected operator: " + op);
-        }
-
-        
+        }        
     }
+
+    // ################# DEBUGGING METHODEN START #################
+
+    private static void printStack(Deque<?> stack, String name) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(name).append(" Stack: [");
+        for (Object item : stack) {
+            sb.append(itemToString(item)).append(", ");
+        }
+        if (!stack.isEmpty()) {
+            sb.setLength(sb.length() - 2); // ", " entfernen
+        }
+        sb.append("]");
+        Clerk.markdown(sb.toString());
+    }
+
+    private static String itemToString(Object item) {
+        if (item instanceof Expr expr) {
+            return exprToString(expr);
+        } else if (item instanceof Token token) {
+            return tokenToString(token);
+        }
+        return item.toString();
+    }
+
+    private static String tokenToString(Token token) {
+        return switch (token) {
+            case Number n -> String.valueOf(n.value());
+            case Variable v -> v.name();
+            case Const c -> c.symbol;
+            case Operator op -> op.symbol;
+            case Paren p -> p.symbol;
+            case Function f -> f.name();
+            default -> token.toString();
+        };
+    }
+
+    private static String exprToString(Expr expr) {
+        return switch (expr) {
+            case Expr.Number n -> String.valueOf(n.value());
+            case Expr.Variable v -> v.name();
+            case Expr.Constant c -> c.constant().symbol;
+            case Expr.UnaryOp(var op, var e) -> op.symbol + "(" + exprToString(e) + ")";
+            case Expr.BinaryOp(var op, var l, var r) -> 
+                "(" + exprToString(l) + " " + op.symbol + " " + exprToString(r) + ")";
+            case Expr.FunctionCall(var f, var arg) -> f.name() + "(" + exprToString(arg) + ")";
+            case Expr.LogBase(var base, var e) -> "log_" + base + "(" + exprToString(e) + ")";
+            case Expr.Parameter p -> p.name();
+        };
+    }
+    // ################  DEBUGGING METHODEN END ###################
 }
+
 
 // ================= Parser für UPN-Notation =================
 class UPNParser {
@@ -1227,36 +1249,36 @@ class UPNParser {
             // Clerk.markdown("**Next Token:** " + token);
             switch (token) {
                 case Number n -> {
-                    stack.push(new Expr.Number(n.value())); // printStack(stack);
+                    stack.push(Expr.num(n.value())); // printStack(stack);
                 }
                 case Variable v -> {
-                    stack.push(new Expr.Variable(v.name())); // printStack(stack);
+                    stack.push(Expr.var(v.name())); // printStack(stack);
                 }                       
                 case Const c -> {
-                    stack.push(new Expr.Constant(c)); // printStack(stack);
+                    stack.push(Expr.constant(c)); // printStack(stack);
                 }
                 case Operator op -> {
                     if (op == Operator.NEG) {
                         Expr operand = stack.pop();
-                        stack.push(new Expr.UnaryOp(op, operand));
+                        stack.push(Expr.neg(operand));
                     } else {
                         Expr right = stack.pop();
                         Expr left = stack.pop();
-                        stack.push(new Expr.BinaryOp(op, left, right));
+                        stack.push(Expr.add(left, right));
                     }
                     // printStack(stack);
                 }
                 case Function f -> {
                     Expr arg = stack.pop();
-                    stack.push(new Expr.FunctionCall(f, arg));
+                    stack.push(Expr.function(f, arg));
                     // printStack(stack);
                 }
                 case LogBase log_base -> {
                     Expr arg = stack.pop();
-                    stack.push(new Expr.LogBase(log_base.base(), arg));
+                    stack.push(Expr.logBase(log_base.base(), arg));
                 }
                 case Parameter p -> {
-                    stack.push(new Expr.Parameter(p.name()));
+                    stack.push(Expr.param(p.name()));
                 }
                 default -> throw new IllegalArgumentException("Invalid UPN token: " + token);
             }
@@ -1437,8 +1459,8 @@ class UPNGenerator {
 class Differentiator {
     public static Expr derive(Expr expr) {
         return switch (expr) {
-            case Expr.Number n -> new Expr.Number(0);
-            case Expr.Variable v -> new Expr.Number(1);
+            case Expr.Number n -> Expr.num(0);
+            case Expr.Variable v -> Expr.num(1);
             case Expr.Constant(Const constant) -> {
                 yield switch(constant) {
                     case PI -> Expr.num(0);
@@ -1473,11 +1495,19 @@ class Differentiator {
                         if (r instanceof Expr.Number n) {
                             yield Expr.mul(
                                 Expr.num(n.value()),
-                                Expr.pow(l, Expr.num(n.value() - 1))
+                                Expr.pow(l, Expr.sub(Expr.num(n.value()), Expr.num(1)))
                             );
                         } else {
-                            throw new UnsupportedOperationException("Nur x^n unterstützt.");
-                        }
+                            // Weiß nicht ob richtig
+                            // Allgemeine Potenzregel: (f(x)^g(x))' => f(x)^g(x) * (g'(x) * ln(f(x)) + g(x) * f'(x)/f(x)))
+                            yield Expr.mul(
+                                Expr.pow(l, r),
+                                Expr.add(
+                                    Expr.mul(derive(r), Expr.function(Function.LN, l)),
+                                    Expr.mul(r, Expr.div(derive(l), l))
+                                )
+                            );
+                        } 
                     }
                     default -> throw new UnsupportedOperationException("Operation " + op + " wird nicht unterstützt");
                 };
@@ -1551,6 +1581,104 @@ class Differentiator {
             case Expr.Parameter p -> Expr.param(p.name()); // Ableitung von Parametern bleibt als Parameter erhalten
             default -> throw new UnsupportedOperationException("Operation wird nicht unterstützt");
             
+        };
+    }
+
+    public static Expr simplify(Expr expr) {
+        Expr prev;
+        Expr curr = expr;
+        do {
+            prev = curr;
+            curr = simplifyExpr(curr);
+        } while(!curr.equals(prev));
+        return curr;
+    }
+
+    private static Expr simplifyExpr(Expr expr) {
+        return switch (expr) {
+            case Expr.UnaryOp(Operator op, Expr e) -> {
+                Expr simplified = simplify(e);
+                if (simplified instanceof Expr.Number n) {
+                    yield switch(op) {
+                        case NEG -> Expr.num(-n.value());
+                        default -> throw new UnsupportedOperationException();
+                    };
+                } else {
+                    yield new Expr.UnaryOp(op, simplified);
+                }
+            }
+            case Expr.BinaryOp(Operator op, Expr l, Expr r) -> {
+                // Post-Order-Traversal
+                Expr left = simplify(l);
+                Expr right = simplify(r);
+
+                // TODO: Mit Java 25 kann ich diese instanceof direkt in den case packen
+                yield switch(op) {
+                    case ADD -> {
+                        if (left instanceof Expr.Number n1 && n1.value() == 0) yield right; // Bsp.: 0 + x = x
+                        if (right instanceof Expr.Number n2 && n2.value() == 0) yield left; // Bsp.: x + 0 = x
+                        yield Expr.add(left, right); // Möglicherweise als Wert direkt
+                    }
+                    case SUB -> {
+                        if (right instanceof Expr.Number n1 && n1.value() == 0) yield left; // Bsp.: x - 0 = x
+                        yield Expr.sub(left, right);
+                    }
+                    case MUL -> {
+                        if (left instanceof Expr.Number n1 && right instanceof Expr.Number n2) {
+                            yield Expr.num(n1.value() * n2.value());
+                        }
+                        if (left instanceof Expr.Number n1 && n1.value() == 0) yield Expr.num(0); // Bsp.: 0 * x = 0
+                        if (right instanceof Expr.Number n2 && n2.value() == 0) yield Expr.num(0); // Bsp.: x * 0 = 0
+                        if (left instanceof Expr.Number n1 && n1.value() == 1) yield right; // Bsp.: 1 * x = x
+                        if (right instanceof Expr.Number n2 && n2.value() == 1) yield left; // Bsp.: x * 1 = x
+                        // NEU: (a * b) * x → (a*b) * x
+                        if (left instanceof Expr.BinaryOp(Operator innerOp, Expr.Number n1, Expr.Number n2) && innerOp == Operator.MUL) {
+                            yield Expr.mul(Expr.num(n1.value() * n2.value()), right);
+                        }
+
+                        yield Expr.mul(left, right);
+                    }
+                    case DIV -> {
+                        if (left instanceof Expr.Number n1 && n1.value() == 0) yield Expr.num(0); // Bsp.: 0 / x = 0
+                        if (right instanceof Expr.Number n2 && n2.value() == 1) yield left; // Bsp.: x / 1 = x
+                        yield Expr.div(left, right);
+                    }
+                    case POW -> {
+                        if (right instanceof Expr.Number n1 && n1.value() == 0) yield Expr.num(1); // Bsp.: x^0 = 1
+                        if (right instanceof Expr.Number n2 && n2.value() == 1) yield left; // Bsp.: x^1 = x
+                        if (left instanceof Expr.Number n1 && n1.value() == 0) yield Expr.num(0); // Bsp.: 0^x = 0
+                        if (left instanceof Expr.Number n2 && n2.value() == 1) yield Expr.num(1); // Bsp.: 1^x = 1
+                        yield Expr.pow(left, right);
+                    }
+                    default -> throw new UnsupportedOperationException();
+                };
+            }
+            case Expr.FunctionCall(Function f, Expr arg) -> {
+                Expr simplifiedArg = simplify(arg);
+                if (simplifiedArg instanceof Expr.Number n) {
+                    yield switch(f) {
+                        case SIN -> Expr.num(Math.sin(n.value()));
+                        case COS -> Expr.num(Math.cos(n.value()));
+                        case TAN -> Expr.num(Math.tan(n.value()));
+                        case LOG -> Expr.num(Math.log10(n.value()));
+                        case LN -> {
+                            if (simplifiedArg instanceof Expr.Constant c && c.constant() == Const.E) {
+                                yield Expr.num(1);
+                            }
+                            if (simplifiedArg instanceof Expr.Number n1) {
+                                yield Expr.num(Math.log(n1.value()));
+                            }
+                            yield Expr.function(f, simplifiedArg);
+                        }
+                        case SQRT -> Expr.num(Math.sqrt(n.value()));
+                        case EXP -> Expr.num(Math.exp(n.value()));
+                        default -> throw new UnsupportedOperationException();
+                    };
+                } else {
+                    yield Expr.function(f, simplifiedArg);
+                }
+            }
+            default -> expr; // Alle anderen Ausdrücke werden nicht weiter vereinfacht
         };
     }
 }
